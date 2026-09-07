@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "8086: listing_0037_single_register_mov",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "program": "${workspaceFolder}/8086_disassembler.py",
+      "args": [
+        "${workspaceFolder}/build/listing_0037_single_register_mov.bin"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "stopOnEntry": false,
+      "preLaunchTask": "8086: Assemble inputs"
+    },
+    {
+      "name": "8086: listing_0038_many_register_mov",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "program": "${workspaceFolder}/8086_disassembler.py",
+      "args": [
+        "${workspaceFolder}/build/listing_0038_many_register_mov.bin"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "stopOnEntry": false,
+      "preLaunchTask": "8086: Assemble inputs"
+    }
+  ]
+}

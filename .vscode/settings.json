@@ -1,0 +1,14 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.analysis.typeCheckingMode": "basic",
+  "files.exclude": {
+    "**/__pycache__": true
+  },
+  "search.exclude": {
+    ".tools/**": true,
+    ".venv/**": true,
+    "build/**": true
+  },
+  "debug.saveBeforeStart": "allEditorsInActiveGroup",
+  "task.saveBeforeRun": "always"
+}
