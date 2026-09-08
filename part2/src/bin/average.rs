@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::io;
 use std::io::prelude::*;
+use tracing_subscriber::prelude::*;
 
 const USAGE: &str = "Usage: average <input.json>";
 const EARTH_RADIUS: f64 = 6372.8;
@@ -97,6 +98,7 @@ impl<R: BufRead> Cursor<'_, R> {
  * Decide how to handle an empty array; do not silently report a zero mean.
  */
 fn average_haversine<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(f64, usize)> {
+    let _average = tracing::info_span!("average_haversine").entered();
     // Sample JSON
     // {"pairs":[
     //   {"x0":40.56278926715536,"y0":-38.05685214827928,"x1":58.67978065278559,"y1":-42.10090404776115},
@@ -119,12 +121,22 @@ fn average_haversine<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(f64, usi
 
     let mut sum: f64 = 0.0;
     let mut count: usize = 0;
+    // One span per 10,000 pairs avoids per-byte/per-pair tracing overhead.
+    let mut batch = None;
 
     if cursor.peek_non_whitespace()? != Some(b']') {
         loop {
+            if count % 10_000 == 0 {
+                batch = Some(tracing::info_span!(
+                    "parse_and_average_batch", first_pair = count, byte_offset = cursor.offset
+                ).entered());
+            }
             let pair = parse_pair(cursor)?;
             sum += reference_haversine(&pair, EARTH_RADIUS);
             count += 1;
+            if count % 10_000 == 0 {
+                drop(batch.take());
+            }
 
             match cursor.peek_non_whitespace()? {
                 Some(b']') => break,
@@ -134,6 +146,7 @@ fn average_haversine<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(f64, usi
         }
     }
 
+    drop(batch);
     cursor.skip_whitespace()?;
     cursor.expect(b']')?;
     cursor.skip_whitespace()?;
@@ -302,7 +315,25 @@ fn run() -> Result<()> {
         return Err(USAGE.into());
     }
 
-    let f = fs::File::open(&args[0])?;
+    // Keep the flush guard alive until all spans have closed, including on errors.
+    let _trace_guard = if let Some(path) = env::var_os("HAVERSINE_TRACE") {
+        let file = fs::File::create_new(&path)?;
+        let (layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
+            .writer(io::BufWriter::new(file))
+            .include_args(true)
+            .include_locations(false)
+            .build();
+        tracing_subscriber::registry().with(layer).try_init()?;
+        eprintln!("Writing trace to {}", std::path::Path::new(&path).display());
+        Some(guard)
+    } else {
+        None
+    };
+    let _run = tracing::info_span!("haversine_run").entered();
+    let f = {
+        let _open = tracing::info_span!("open_input").entered();
+        fs::File::open(&args[0])?
+    };
     let mut reader = io::BufReader::new(f);
     let mut cursor = Cursor::new(&mut reader);
     let (mean, pair_count) = average_haversine(&mut cursor)?;

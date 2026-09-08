@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 import re
 import statistics
@@ -10,6 +11,7 @@ import struct
 import subprocess
 import sys
 import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build" / "part2" / "checks"
@@ -18,10 +20,10 @@ SUFFIX = ".exe" if sys.platform == "win32" else ""
 RADIUS = 6372.8
 
 
-def run(*args):
+def run(*args, env=None):
     return subprocess.run(
         [str(arg) for arg in args], cwd=ROOT, check=True,
-        capture_output=True, text=True, timeout=600,
+        capture_output=True, text=True, timeout=600, env=env,
     ).stdout
 
 
@@ -36,9 +38,13 @@ def binary(name):
     return TARGET / "release" / (name + SUFFIX)
 
 
-def check(path, count, expected):
+def check(path, count, expected, trace=None):
+    environment = os.environ.copy()
+    environment.pop("HAVERSINE_TRACE", None)
+    if trace is not None:
+        environment["HAVERSINE_TRACE"] = str(trace)
     start = time.perf_counter()
-    output = run(binary("average"), path)
+    output = run(binary("average"), path, env=environment)
     elapsed = time.perf_counter() - start
     count_match = re.search(r"Pair count:\s*(\d+)", output)
     mean_match = re.search(r"Mean Haversine distance:\s*(\S+)\s+km", output)
@@ -89,21 +95,30 @@ def correctness():
             print(f"PASS: {method}, {count:,} pairs (count and reference mean)")
 
 
-def performance(count, repeats):
+def performance(count, repeats, trace=False):
+    trace_directory = None
+    if trace:
+        trace_directory = ROOT / "build" / "part2" / "traces" / uuid.uuid4().hex
+        trace_directory.mkdir(parents=True)
     path, expected = generate("cluster", 42, count)
     print("Warm-up and reference check...", flush=True)
     check(path, count, expected)
     samples = []
     for index in range(repeats):
-        elapsed = check(path, count, expected)
+        trace_path = trace_directory / f"run-{index + 1}.json" if trace_directory else None
+        elapsed = check(path, count, expected, trace=trace_path)
         samples.append(elapsed)
         print(f"Run {index + 1}: {elapsed:.3f} s, {count / elapsed:,.0f} pairs/s", flush=True)
+        if trace_path:
+            print(f"Trace: {trace_path}", flush=True)
     median = statistics.median(samples)
     size = path.stat().st_size
     print(f"Input: {count:,} pairs, {size / 1e6:.1f} MB")
     print(f"Median: {median:.3f} s, {count / median:,.0f} pairs/s, {size / median / 1e6:.1f} MB/s")
     print("Release build; includes process startup, file reads, parsing, and math.")
     print("Build/generation excluded; warm-up performed; OS file cache may be warm.")
+    if trace:
+        print("Tracing and trace flushing are included in these timings. Open traces at https://ui.perfetto.dev/")
 
 
 def positive(value):
@@ -118,13 +133,14 @@ def main():
     parser.add_argument("action", choices=("correctness", "performance"))
     parser.add_argument("--pairs", type=positive, default=1_000_000)
     parser.add_argument("--repeats", type=positive, default=3)
+    parser.add_argument("--trace", action="store_true", help="Export a Perfetto trace for each measured performance run")
     args = parser.parse_args()
     try:
         build()
         if args.action == "correctness":
             correctness()
         else:
-            performance(args.pairs, args.repeats)
+            performance(args.pairs, args.repeats, trace=args.trace)
     except subprocess.CalledProcessError as error:
         print(error.stdout or "", file=sys.stderr)
         print(error.stderr or "", file=sys.stderr)

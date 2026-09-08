@@ -4,6 +4,13 @@
 
 Use **Ctrl+Shift+P → Tasks: Run Task**:
 
+- **Haversine: Benchmark with Perfetto traces** runs the scale benchmark with
+  tracing enabled for each of its three measured runs. A unique directory under
+  `build/part2/traces/` holds `run-1.json` through `run-3.json`; paths are printed
+  in the terminal. Open a file in https://ui.perfetto.dev/. These timings include
+  tracing and flushing overhead. The warm-up is not traced. CLI equivalent:
+  `.\.venv\Scripts\python.exe part2/exercise.py performance --pairs 1000000 --trace`.
+
 - **Haversine: Check correctness** builds the release binaries and checks known
   distances plus uniform and clustered datasets at 1, 65, and 10,000 pairs.
   It checks the count and mean against the generator's binary reference answer.
@@ -27,7 +34,7 @@ Equivalent commands from the repository root:
 .\.venv\Scripts\python.exe part2/exercise.py performance --pairs 1000000 --repeats 3
 ```
 
-A Rust package with no external dependencies. The `generate` binary lives in
+A Rust package using `tracing` and `tracing-chrome` for optional profiling. The `generate` binary lives in
 `src/bin/generate.rs`; the averaging exercise lives in `src/bin/average.rs`.
 Run from the repository root:
 
@@ -53,6 +60,28 @@ The generator streams both files through buffered writers, using constant memory
   The mean uses compensated summation. Answers are computed before JSON encoding.
 
 ## Averaging exercise
+
+### Perfetto traces
+
+Set `HAVERSINE_TRACE` to a new output filename to enable Chrome Trace Event JSON
+export, then open it in [Perfetto](https://ui.perfetto.dev/). The parent directory
+must exist; an existing file is rejected to avoid overwriting input or old traces.
+
+```powershell
+$env:HAVERSINE_TRACE = "build/part2/average-trace.json"
+try {
+    cargo run --release --manifest-path part2/Cargo.toml --bin average -- build/part2/data_cluster_42_10.json
+} finally {
+    Remove-Item Env:HAVERSINE_TRACE
+}
+```
+
+Spans cover `haversine_run`, `open_input`, `average_haversine`, and
+`parse_and_average_batch` (up to 10,000 pairs, with starting pair and byte offset).
+Batch spans include both parsing/file reads and distance calculation. They do
+not separate individual function timings. The trace is flushed on success and
+normal error returns. Tracing is disabled when the environment variable is unset;
+leave it unset for ordinary performance comparisons.
 
 `average` streams pairs through a cursor over `BufRead`, calculates their
 distances, and prints the count and mean. No JSON library is used.
