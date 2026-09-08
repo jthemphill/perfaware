@@ -2,6 +2,25 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Haversine: Check correctness",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["part2/exercise.py", "correctness"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
+    },
+    {
+      "label": "Haversine: Benchmark at scale",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["part2/exercise.py", "performance", "--pairs", "${input:haversinePairs}"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
+    },
+    {
       "label": "8086: Check all upstream listings",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
@@ -182,6 +201,12 @@
     }
   ],
   "inputs": [
+    {
+      "id": "haversinePairs",
+      "type": "promptString",
+      "description": "Number of Haversine pairs for the benchmark",
+      "default": "1000000"
+    },
     {
       "id": "listing",
       "type": "pickString",

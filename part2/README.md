@@ -1,4 +1,31 @@
-# Part 2: Haversine input generator
+# Part 2: Haversine generator and streaming average
+
+## VS Code checks
+
+Use **Ctrl+Shift+P → Tasks: Run Task**:
+
+- **Haversine: Check correctness** builds the release binaries and checks known
+  distances plus uniform and clustered datasets at 1, 65, and 10,000 pairs.
+  It checks the count and mean against the generator's binary reference answer.
+- **Haversine: Benchmark at scale** prompts for a pair count (default 1,000,000),
+  generates clustered input, warms up once, then measures three runs. Every run
+  also verifies the count and mean. Reports elapsed time, pairs/s, and MB/s.
+
+Timing includes process startup, file reads, parsing, and Haversine calculation;
+it excludes compilation and generation. The OS file cache may be warm. This is
+an end-to-end benchmark, not an isolated math-function benchmark.
+
+Both commands fail with a nonzero exit code on errors or mismatches. Mean
+comparisons allow absolute error of 1e-8 km or relative error of 1e-10 to account
+for floating-point accumulation differences. Generated inputs and references
+live in `build/part2/checks/`; release binaries live in `build/part2/cargo/`.
+
+Equivalent commands from the repository root:
+
+```powershell
+.\.venv\Scripts\python.exe part2/exercise.py correctness
+.\.venv\Scripts\python.exe part2/exercise.py performance --pairs 1000000 --repeats 3
+```
 
 A Rust package with no external dependencies. The `generate` binary lives in
 `src/bin/generate.rs`; the averaging exercise lives in `src/bin/average.rs`.
@@ -27,9 +54,8 @@ The generator streams both files through buffered writers, using constant memory
 
 ## Averaging exercise
 
-`average` provides command-line handling, byte-oriented file loading, a `Pair`
-type, and result printing. Implement `parse_pairs` and `average_haversine` yourself.
-Both currently return explicit "not implemented" errors. No JSON library is used.
+`average` streams pairs through a cursor over `BufRead`, calculates their
+distances, and prints the count and mean. No JSON library is used.
 The generator's `haversine` function is available as a reference for the math.
 
 ```powershell
@@ -40,7 +66,8 @@ cargo run --manifest-path part2/Cargo.toml --bin average -- build/part2/data_clu
 Start with the small generated file. As you implement the parser, check whitespace,
 negative and fractional numbers, exponents, reordered fields, empty arrays, and
 malformed or truncated input. Compare the parsed pair count and computed mean
-against the generator's output. The scaffold reads the entire file into memory.
+against the generator's output. The parser keeps one pair and a bounded number
+token in memory rather than loading the entire file.
 
 ## Clustering
 

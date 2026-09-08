@@ -1,12 +1,14 @@
-//! Exercise scaffold: hand-written JSON parsing and average Haversine distance.
-
 use std::env;
 use std::fs;
+use std::io;
+use std::io::prelude::*;
 
 const USAGE: &str = "Usage: average <input.json>";
+const EARTH_RADIUS: f64 = 6372.8;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)] // Remove once the averaging implementation reads these fields.
 struct Pair {
     x0: f64,
     y0: f64,
@@ -14,23 +16,283 @@ struct Pair {
     y1: f64,
 }
 
-fn parse_pairs(_input: &[u8]) -> Result<Vec<Pair>, String> {
-    // TODO: Write your parser here, starting with a byte cursor into input.
-    // Expected shape: {"pairs":[{"x0":...,"y0":...,"x1":...,"y1":...}, ...]}
-    // Handle whitespace, punctuation, field names, and JSON numbers yourself.
-    // Report malformed input with its byte offset, and reject trailing content.
-    // No JSON library is included; the parser design is yours.
-    Err("parse_pairs is not implemented yet".into())
+enum Key {
+    X0,
+    Y0,
+    X1,
+    Y1,
 }
 
-fn average_haversine(_pairs: &[Pair]) -> Result<f64, String> {
-    // TODO: Compute each distance and return the mean in kilometers.
-    // Use radius 6372.8 and the reference formula in generate.rs (fn haversine).
-    // Decide how to handle an empty array; do not silently report a zero mean.
-    Err("average_haversine is not implemented yet".into())
+struct Cursor<'a, R: BufRead> {
+    reader: &'a mut R,
+    offset: usize,
 }
 
-fn run() -> Result<(), Box<dyn std::error::Error>> {
+impl<R: BufRead> Cursor<'_, R> {
+    fn new<'a>(reader: &'a mut R) -> Cursor<'a, R> {
+        Cursor { reader, offset: 0 }
+    }
+
+    fn peek(&mut self) -> Result<Option<u8>> {
+        let buf = self.reader.fill_buf()?;
+        Ok(buf.first().copied())
+    }
+
+    fn peek_non_whitespace(&mut self) -> Result<Option<u8>> {
+        self.skip_whitespace()?;
+        self.peek()
+    }
+
+    fn advance(&mut self) -> Result<()> {
+        let buf = self.reader.fill_buf()?;
+        if buf.is_empty() {
+            Err(format!(
+                "Attempted to advance past the end of the string at position {}",
+                self.offset,
+            )
+            .into())
+        } else {
+            self.reader.consume(1);
+            self.offset += 1;
+            Ok(())
+        }
+    }
+
+    fn skip_whitespace(&mut self) -> Result<()> {
+        while let Some(b) = self.peek()? {
+            match b {
+                b' ' | b'\t' | b'\n' | b'\r' => self.advance()?,
+                _ => break,
+            }
+        }
+        Ok(())
+    }
+
+    fn expect(&mut self, expected: u8) -> Result<()> {
+        let actual = self.peek()?;
+        if let Some(actual) = actual {
+            if actual == expected {
+                self.advance()?;
+                Ok(())
+            } else {
+                Err(format!(
+                    "Expected {expected}, got {actual} at position {}",
+                    self.offset
+                )
+                .into())
+            }
+        } else {
+            Err(format!(
+                "Expected {expected} but reached end of string at position {}",
+                self.offset
+            )
+            .into())
+        }
+    }
+}
+
+/**
+ * Compute each distance and return the mean in kilometers.
+ * Use radius 6372.8 and the reference formula in generate.rs (fn haversine).
+ * Decide how to handle an empty array; do not silently report a zero mean.
+ */
+fn average_haversine<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(f64, usize)> {
+    // Sample JSON
+    // {"pairs":[
+    //   {"x0":40.56278926715536,"y0":-38.05685214827928,"x1":58.67978065278559,"y1":-42.10090404776115},
+    //   {"x0":-56.6345357859396,"y0":23.104742585733618,"x1":-45.4156347086755,"y1":-5.019891497482234}
+    // ]}
+
+    cursor.skip_whitespace()?;
+    cursor.expect(b'{')?;
+
+    cursor.skip_whitespace()?;
+    for &expected in b"\"pairs\"" {
+        cursor.expect(expected)?
+    }
+
+    cursor.skip_whitespace()?;
+    cursor.expect(b':')?;
+
+    cursor.skip_whitespace()?;
+    cursor.expect(b'[')?;
+
+    let mut sum: f64 = 0.0;
+    let mut count: usize = 0;
+
+    if cursor.peek_non_whitespace()? != Some(b']') {
+        loop {
+            let pair = parse_pair(cursor)?;
+            sum += reference_haversine(&pair, EARTH_RADIUS);
+            count += 1;
+
+            match cursor.peek_non_whitespace()? {
+                Some(b']') => break,
+                Some(b',') => cursor.advance()?,
+                _ => return Err(format!("Expected ',' or ']' at offset {}", cursor.offset).into()),
+            }
+        }
+    }
+
+    cursor.skip_whitespace()?;
+    cursor.expect(b']')?;
+    cursor.skip_whitespace()?;
+    cursor.expect(b'}')?;
+    cursor.skip_whitespace()?;
+
+    if let Some(b) = cursor.peek()? {
+        Err(format!(
+            "Expected EOF; got unexpected character {b} at offset {}",
+            cursor.offset
+        )
+        .into())
+    } else if count == 0 {
+        Err("Got a 0-element array, no average is possible!".into())
+    } else {
+        Ok((sum / count as f64, count))
+    }
+}
+
+fn parse_pair<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<Pair> {
+    let mut x0 = None;
+    let mut y0 = None;
+    let mut x1 = None;
+    let mut y1 = None;
+
+    cursor.skip_whitespace()?;
+    cursor.expect(b'{')?;
+    if cursor.peek_non_whitespace()? != Some(b'}') {
+        loop {
+            let (key, value) = parse_field(cursor)?;
+            match key {
+                Key::X0 => x0 = Some(value),
+                Key::Y0 => y0 = Some(value),
+                Key::X1 => x1 = Some(value),
+                Key::Y1 => y1 = Some(value),
+            }
+
+            match cursor.peek_non_whitespace()? {
+                Some(b',') => cursor.advance()?,
+                Some(b'}') => {
+                    cursor.advance()?;
+                    break;
+                }
+                _ => return Err(format!("Expected ',' or '}}' at offset {}", cursor.offset).into()),
+            }
+        }
+    }
+
+    if let Some(x0) = x0
+        && let Some(y0) = y0
+        && let Some(x1) = x1
+        && let Some(y1) = y1
+    {
+        Ok(Pair { x0, y0, x1, y1 })
+    } else {
+        Err(format!("Couldn't find all of x0, y0, x1, and y1").into())
+    }
+}
+
+fn parse_field<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(Key, f64)> {
+    let key = parse_key(cursor)?;
+    cursor.skip_whitespace()?;
+    cursor.expect(b':')?;
+    let val = parse_val(cursor)?;
+    Ok((key, val))
+}
+
+fn parse_key<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<Key> {
+    cursor.skip_whitespace()?;
+    cursor.expect(b'"')?;
+    if let Some(x_or_y) = cursor.peek()? {
+        cursor.advance()?;
+        if let Some(zero_or_one) = cursor.peek()? {
+            cursor.advance()?;
+            cursor.expect(b'"')?;
+            return match (x_or_y, zero_or_one) {
+                (b'x', b'0') => Ok(Key::X0),
+                (b'y', b'0') => Ok(Key::Y0),
+                (b'x', b'1') => Ok(Key::X1),
+                (b'y', b'1') => Ok(Key::Y1),
+                _ => Err(format!(
+                    "Unexpected characters {x_or_y}{zero_or_one} at offset {}",
+                    cursor.offset
+                )
+                .into()),
+            };
+        }
+    }
+    Err(format!("Couldn't find a string key at offset {}", cursor.offset).into())
+}
+
+fn parse_val<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<f64> {
+    let mut float_vec = vec![];
+    if let Some(b) = cursor.peek_non_whitespace()? {
+        match b {
+            b'-' | b'0'..=b'9' | b'.' => {
+                float_vec.push(b);
+                cursor.advance()?;
+            }
+            _ => return Err(format!("Unexpected {b} at offset {}", cursor.offset).into()),
+        };
+        while let Some(b) = cursor.peek()? {
+            match b {
+                b'-' | b'+' | b'0'..=b'9' | b'.' | b'e' | b'E' => {
+                    if float_vec.len() >= 100 {
+                        return Err(format!(
+                            "Number representation exceeds 100-byte limit at offset {}",
+                            cursor.offset
+                        )
+                        .into());
+                    }
+                    float_vec.push(b);
+                    cursor.advance()?;
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+    }
+
+    let text = std::str::from_utf8(&float_vec)?;
+    let value = text.parse::<f64>()?;
+    return Ok(value);
+}
+
+// NOTE(casey): EarthRadius is generally expected to be 6372.8
+fn reference_haversine(pair: &Pair, radius: f64) -> f64 {
+    /* NOTE(casey): This is not meant to be a "good" way to calculate the Haversine distance.
+       Instead, it attempts to follow, as closely as possible, the formula used in the real-world
+       question on which these homework exercises are loosely based.
+    */
+
+    let mut lat1 = pair.y0;
+    let mut lat2 = pair.y1;
+    let lng1 = pair.x0;
+    let lng2 = pair.x1;
+
+    let d_lat = radians_from_degrees(lat2 - lat1);
+    let d_lng = radians_from_degrees(lng2 - lng1);
+
+    lat1 = radians_from_degrees(lat1);
+    lat2 = radians_from_degrees(lat2);
+
+    let a = square((d_lat / 2.0).sin()) + lat1.cos() * lat2.cos() * square((d_lng / 2.0).sin());
+    let c = 2.0 * a.sqrt().asin();
+
+    return radius * c;
+}
+
+fn square(a: f64) -> f64 {
+    return a * a;
+}
+
+fn radians_from_degrees(degrees: f64) -> f64 {
+    return 0.01745329251994329577 * degrees;
+}
+
+fn run() -> Result<()> {
     let args: Vec<_> = env::args_os().skip(1).collect();
     if args.len() == 1 && (args[0] == "--help" || args[0] == "-h") {
         println!("{USAGE}");
@@ -40,13 +302,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err(USAGE.into());
     }
 
-    let input = fs::read(&args[0])?;
-    let pairs = parse_pairs(&input)?;
-    let mean = average_haversine(&pairs)?;
-    println!(
-        "Pair count: {}\nMean Haversine distance: {mean:.16} km",
-        pairs.len()
-    );
+    let f = fs::File::open(&args[0])?;
+    let mut reader = io::BufReader::new(f);
+    let mut cursor = Cursor::new(&mut reader);
+    let (mean, pair_count) = average_haversine(&mut cursor)?;
+    println!("Pair count: {pair_count}\nMean Haversine distance: {mean:.16} km",);
     Ok(())
 }
 
