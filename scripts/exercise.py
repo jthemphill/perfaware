@@ -9,7 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 INPUTS = ROOT / "vendor" / "computer_enhance" / "perfaware" / "part1"
-SUPPORTED_LISTINGS = {"0037", "0038", "0039", "0040"}
+SUPPORTED_LISTINGS = {"0037", "0038", "0039", "0040", "0041"}
 
 
 def nasm() -> str:
