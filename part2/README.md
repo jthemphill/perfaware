@@ -2,7 +2,25 @@
 
 ## VS Code checks
 
+Generated datasets are reused by method, seed, and pair count. Reuse requires a
+nonempty JSON file and a reference file of the expected size with a finite mean.
+The averaging run still validates parsing, pair count, and mean; cache checks do
+not scan the entire JSON file. Missing/incomplete datasets are regenerated.
+Pass `--regenerate` to `part2/exercise.py` to force fresh data, for example after
+changing the generator. The small known-distance fixtures are always rewritten.
+
 Use **Ctrl+Shift+P → Tasks: Run Task**:
+
+- **Haversine: Create CPU flamegraph** prompts for the pair count, reuses cached
+  data, builds an optimized executable with debug symbols, and captures sampled
+  stacks. Approve the Windows administrator prompt. The SVG is saved in a unique
+  directory under `build/part2/flamegraphs/`; its full path is printed. Open it in
+  a browser and click frames to zoom. Perfetto tracing is disabled during sampling.
+  The Windows launcher uses a process-local execution policy override for the
+  checked-in PowerShell script; no persistent execution policy is changed.
+  Install the local profiler if missing with
+  `cargo install flamegraph --locked --root .tools/flamegraph`.
+  CLI: `.\.venv\Scripts\python.exe part2/exercise.py flamegraph --pairs 1000000`.
 
 - **Haversine: Benchmark with Perfetto traces** runs the scale benchmark with
   tracing enabled for each of its three measured runs. A unique directory under

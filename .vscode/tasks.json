@@ -2,6 +2,15 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Haversine: Create CPU flamegraph",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["part2/exercise.py", "flamegraph", "--pairs", "${input:haversinePairs}"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
+    },
+    {
       "label": "Haversine: Benchmark with Perfetto traces",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",

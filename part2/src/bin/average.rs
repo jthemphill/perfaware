@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::env;
 use std::fs;
 use std::io;
@@ -127,9 +128,14 @@ fn average_haversine<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(f64, usi
     if cursor.peek_non_whitespace()? != Some(b']') {
         loop {
             if count % 10_000 == 0 {
-                batch = Some(tracing::info_span!(
-                    "parse_and_average_batch", first_pair = count, byte_offset = cursor.offset
-                ).entered());
+                batch = Some(
+                    tracing::info_span!(
+                        "parse_and_average_batch",
+                        first_pair = count,
+                        byte_offset = cursor.offset
+                    )
+                    .entered(),
+                );
             }
             let pair = parse_pair(cursor)?;
             sum += reference_haversine(&pair, EARTH_RADIUS);
@@ -239,38 +245,44 @@ fn parse_key<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<Key> {
 }
 
 fn parse_val<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<f64> {
-    let mut float_vec = vec![];
-    if let Some(b) = cursor.peek_non_whitespace()? {
-        match b {
-            b'-' | b'0'..=b'9' | b'.' => {
-                float_vec.push(b);
-                cursor.advance()?;
-            }
-            _ => return Err(format!("Unexpected {b} at offset {}", cursor.offset).into()),
-        };
-        while let Some(b) = cursor.peek()? {
+    thread_local! {
+        static FLOAT_BUFFER: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(100));
+    }
+    FLOAT_BUFFER.with(|buffer| {
+        let mut float_vec = buffer.borrow_mut();
+        float_vec.clear();
+        if let Some(b) = cursor.peek_non_whitespace()? {
             match b {
-                b'-' | b'+' | b'0'..=b'9' | b'.' | b'e' | b'E' => {
-                    if float_vec.len() >= 100 {
-                        return Err(format!(
-                            "Number representation exceeds 100-byte limit at offset {}",
-                            cursor.offset
-                        )
-                        .into());
-                    }
+                b'-' | b'0'..=b'9' | b'.' => {
                     float_vec.push(b);
                     cursor.advance()?;
                 }
-                _ => {
-                    break;
+                _ => return Err(format!("Unexpected {b} at offset {}", cursor.offset).into()),
+            };
+            while let Some(b) = cursor.peek()? {
+                match b {
+                    b'-' | b'+' | b'0'..=b'9' | b'.' | b'e' | b'E' => {
+                        if float_vec.len() >= 100 {
+                            return Err(format!(
+                                "Number representation exceeds 100-byte limit at offset {}",
+                                cursor.offset
+                            )
+                            .into());
+                        }
+                        float_vec.push(b);
+                        cursor.advance()?;
+                    }
+                    _ => {
+                        break;
+                    }
                 }
             }
         }
-    }
 
-    let text = std::str::from_utf8(&float_vec)?;
-    let value = text.parse::<f64>()?;
-    return Ok(value);
+        let text = std::str::from_utf8(&float_vec)?;
+        let value = text.parse::<f64>()?;
+        return Ok(value);
+    })
 }
 
 // NOTE(casey): EarthRadius is generally expected to be 6372.8

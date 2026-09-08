@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import uuid
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build" / "part2" / "checks"
@@ -62,20 +63,33 @@ def check(path, count, expected, trace=None):
     return elapsed
 
 
-def generate(method, seed, count):
-    print(f"Generating {method}: {count:,} pairs, seed {seed}...", flush=True)
-    run(binary("generate"), method, seed, count, BUILD)
+def generate(method, seed, count, regenerate=False):
     stem = BUILD / f"data_{method}_{seed}_{count}"
+    pairs = stem.with_suffix(".json")
     answers = stem.with_suffix(".f64")
+    reusable = (
+        not regenerate
+        and pairs.is_file() and pairs.stat().st_size > 0
+        and answers.is_file() and answers.stat().st_size == 8 * (count + 1)
+    )
+    if reusable:
+        with answers.open("rb") as stream:
+            stream.seek(-8, 2)
+            reusable = math.isfinite(struct.unpack("<d", stream.read(8))[0])
+    if reusable:
+        print(f"Reusing {method}: {count:,} pairs, seed {seed}...", flush=True)
+    else:
+        print(f"Generating {method}: {count:,} pairs, seed {seed}...", flush=True)
+        run(binary("generate"), method, seed, count, BUILD)
     if answers.stat().st_size != 8 * (count + 1):
         raise RuntimeError("Unexpected reference answer file size")
     with answers.open("rb") as stream:
         stream.seek(-8, 2)
         expected, = struct.unpack("<d", stream.read(8))
-    return stem.with_suffix(".json"), expected
+    return pairs, expected
 
 
-def correctness():
+def correctness(regenerate=False):
     cases = [
         ("same_point", [12, 34, 12, 34], 0),
         ("quarter_equator", [0, 0, 90, 0], math.pi * RADIUS / 2),
@@ -90,17 +104,17 @@ def correctness():
         print(f"PASS: {name}")
     for method in ("uniform", "cluster"):
         for count in (1, 65, 10000):
-            path, expected = generate(method, 42, count)
+            path, expected = generate(method, 42, count, regenerate=regenerate)
             check(path, count, expected)
             print(f"PASS: {method}, {count:,} pairs (count and reference mean)")
 
 
-def performance(count, repeats, trace=False):
+def performance(count, repeats, trace=False, regenerate=False):
     trace_directory = None
     if trace:
         trace_directory = ROOT / "build" / "part2" / "traces" / uuid.uuid4().hex
         trace_directory.mkdir(parents=True)
-    path, expected = generate("cluster", 42, count)
+    path, expected = generate("cluster", 42, count, regenerate=regenerate)
     print("Warm-up and reference check...", flush=True)
     check(path, count, expected)
     samples = []
@@ -121,6 +135,37 @@ def performance(count, repeats, trace=False):
         print("Tracing and trace flushing are included in these timings. Open traces at https://ui.perfetto.dev/")
 
 
+def flamegraph(count, regenerate=False):
+    if sys.platform != "win32":
+        raise RuntimeError("This flamegraph task uses the Windows sampling backend")
+    profiler = ROOT / ".tools" / "flamegraph" / "bin" / "flamegraph.exe"
+    if not profiler.is_file():
+        raise RuntimeError("Install the profiler: cargo install flamegraph --locked --root .tools/flamegraph")
+    path, expected = generate("cluster", 42, count, regenerate=regenerate)
+    profile_target = ROOT / "build" / "part2" / "profile-cargo"
+    environment = os.environ.copy()
+    environment.pop("HAVERSINE_TRACE", None)
+    environment["CARGO_PROFILE_RELEASE_DEBUG"] = "true"
+    print("Building optimized average with debug symbols...", flush=True)
+    run("cargo", "build", "--release", "--manifest-path", "part2/Cargo.toml",
+        "--bin", "average", "--target-dir", profile_target, env=environment)
+    program = profile_target / "release" / "average.exe"
+    print("Warm-up and reference check...", flush=True)
+    check(path, count, expected)
+    output = ROOT / "build" / "part2" / "flamegraphs" / uuid.uuid4().hex / "flamegraph.svg"
+    output.parent.mkdir(parents=True)
+    print("Approve the Windows administrator prompt to capture CPU samples...", flush=True)
+    run("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ROOT / "part2" / "flamegraph.ps1",
+        "-Profiler", profiler, "-Program", program, "-InputFile", path,
+        "-OutputFile", output, env=environment)
+    root = ET.parse(output).getroot()
+    if not any(element.tag.endswith("title") and "samples" in (element.text or "")
+               for element in root.iter()):
+        raise RuntimeError("Flamegraph contains no sampled stacks")
+    print(f"CPU flamegraph: {output}")
+    print("Open the SVG in a browser. Click frames to zoom; wider frames have more samples.")
+
+
 def positive(value):
     number = int(value)
     if number <= 0:
@@ -130,22 +175,25 @@ def positive(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("correctness", "performance"))
+    parser.add_argument("action", choices=("correctness", "performance", "flamegraph"))
     parser.add_argument("--pairs", type=positive, default=1_000_000)
     parser.add_argument("--repeats", type=positive, default=3)
     parser.add_argument("--trace", action="store_true", help="Export a Perfetto trace for each measured performance run")
+    parser.add_argument("--regenerate", action="store_true", help="Replace cached pairs and reference answers")
     args = parser.parse_args()
     try:
         build()
         if args.action == "correctness":
-            correctness()
+            correctness(regenerate=args.regenerate)
+        elif args.action == "flamegraph":
+            flamegraph(args.pairs, regenerate=args.regenerate)
         else:
-            performance(args.pairs, args.repeats, trace=args.trace)
+            performance(args.pairs, args.repeats, trace=args.trace, regenerate=args.regenerate)
     except subprocess.CalledProcessError as error:
         print(error.stdout or "", file=sys.stderr)
         print(error.stderr or "", file=sys.stderr)
         return 1
-    except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as error:
+    except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired, ET.ParseError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1
     return 0
