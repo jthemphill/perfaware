@@ -5,7 +5,7 @@
       "label": "8086: Check all upstream listings",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": ["scripts/exercise.py", "check", "all"],
+      "args": ["part1/exercise.py", "check", "all"],
       "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": [],
       "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
@@ -23,7 +23,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "assemble"
       ],
       "options": {
@@ -42,7 +42,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "run",
         "${input:listing}"
       ],
@@ -62,7 +62,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "check"
       ],
       "options": {
@@ -85,7 +85,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "bytes",
         "${input:listing}"
       ],
@@ -105,7 +105,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "run",
         "0037"
       ],
@@ -125,7 +125,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "check",
         "0037"
       ],
@@ -145,7 +145,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "run",
         "0038"
       ],
@@ -165,7 +165,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": [
-        "scripts/exercise.py",
+        "part1/exercise.py",
         "check",
         "0038"
       ],

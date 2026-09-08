@@ -6,9 +6,9 @@
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "program": "${workspaceFolder}/8086_disassembler.py",
+      "program": "${workspaceFolder}/part1/8086_disassembler.py",
       "args": [
-        "${workspaceFolder}/build/listing_0037_single_register_mov.bin"
+        "${workspaceFolder}/build/part1/listing_0037_single_register_mov.bin"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
@@ -21,9 +21,9 @@
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "program": "${workspaceFolder}/8086_disassembler.py",
+      "program": "${workspaceFolder}/part1/8086_disassembler.py",
       "args": [
-        "${workspaceFolder}/build/listing_0038_many_register_mov.bin"
+        "${workspaceFolder}/build/part1/listing_0038_many_register_mov.bin"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
