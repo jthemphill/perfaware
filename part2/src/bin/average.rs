@@ -75,6 +75,7 @@ impl<R: BufRead> Cursor<'_, R> {
                 (consumed, finished)
             };
             self.reader.consume(consumed);
+            self.offset += consumed;
             if finished {
                 return Ok(());
             }
