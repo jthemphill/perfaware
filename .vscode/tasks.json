@@ -2,9 +2,43 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Casey: Configure C++ IntelliSense",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "linux": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "args": [".vscode/configure_casey.py"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": []
+    },
+    {
+      "label": "Haversine: Check against Casey",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "linux": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "args": ["part2/compare_casey.py", "check"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": [],
+      "group": "test",
+      "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
+    },
+    {
+      "label": "Haversine: Benchmark against Casey",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "linux": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "args": ["part2/compare_casey.py", "benchmark", "--pairs", "${input:haversinePairs}"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
+    },
+    {
       "label": "Haversine: Create CPU flamegraph",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": ["part2/exercise.py", "flamegraph", "--pairs", "${input:haversinePairs}"],
       "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": [],
@@ -14,6 +48,7 @@
       "label": "Haversine: Benchmark with Perfetto traces",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": ["part2/exercise.py", "performance", "--pairs", "${input:haversinePairs}", "--trace"],
       "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": [],
@@ -23,6 +58,7 @@
       "label": "Haversine: Check correctness",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": ["part2/exercise.py", "correctness"],
       "options": {"cwd": "${workspaceFolder}"},
       "group": "test",
@@ -33,6 +69,7 @@
       "label": "Haversine: Benchmark at scale",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": ["part2/exercise.py", "performance", "--pairs", "${input:haversinePairs}"],
       "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": [],
@@ -42,6 +79,7 @@
       "label": "8086: Check all upstream listings",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": ["part1/exercise.py", "check", "all"],
       "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": [],
@@ -59,6 +97,7 @@
       "label": "8086: Assemble inputs",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "assemble"
@@ -78,6 +117,7 @@
       "label": "8086: Run listing",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "run",
@@ -98,6 +138,7 @@
       "label": "8086: Check supported listings",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "check"
@@ -121,6 +162,7 @@
       "label": "8086: Inspect bytes",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "bytes",
@@ -141,6 +183,7 @@
       "label": "8086: Run 0037",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "run",
@@ -161,6 +204,7 @@
       "label": "8086: Check 0037",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "check",
@@ -181,6 +225,7 @@
       "label": "8086: Run 0038",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "run",
@@ -201,6 +246,7 @@
       "label": "8086: Check 0038",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
       "args": [
         "part1/exercise.py",
         "check",

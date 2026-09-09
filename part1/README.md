@@ -14,7 +14,9 @@ and the number of bytes consumed.
 
 ## VS Code
 
-Open the repository root in VS Code. Python and debugger extensions are already installed.
+Open the repository root in VS Code and install the recommended Python and
+debugger extensions. Tasks and debug configurations select Windows or macOS
+Python automatically after you create `.venv` on that computer.
 
 | Shortcut / task | Action |
 | --- | --- |
@@ -49,6 +51,9 @@ into the raw bytes that your program reads.
 .\.venv\Scripts\python.exe part1/exercise.py check all
 .\.venv\Scripts\python.exe part1/8086_disassembler.py build/part1/listing_0037_single_register_mov.bin
 ```
+
+On macOS, replace `.\.venv\Scripts\python.exe` with `.venv/bin/python` in
+these commands, for example `.venv/bin/python part1/exercise.py check`.
 
 The checker assembles the original listing, disassembles that binary, then
 reassembles your output and compares the two binaries byte-for-byte.
@@ -97,13 +102,18 @@ when adding exercises to your regular workflow.
 
 ## Local tools and recreating the environment
 
-A project virtual environment is ready in `.venv/`, created using the available
-bundled Python runtime because the Windows Python launcher was not usable here.
-It depends on that base runtime remaining installed. No Python packages are needed.
-To recreate it with a working Python installation, run `python -m venv .venv`.
+Use Python 3.9 or newer. Create `.venv` on each computer with
+`py -3 -m venv .venv` on Windows (or `python -m venv .venv` if the launcher is
+unavailable), or `python3 -m venv .venv` on macOS. No Python packages are needed.
+Do not copy a virtual environment from one operating system to the other.
 
-Portable NASM 3.02 is in `.tools/nasm-3.02/`, downloaded from the official release:
+On Windows, extract portable NASM 3.02 into `.tools/` from the official release:
 https://www.nasm.us/pub/nasm/releasebuilds/3.02/win64/nasm-3.02-win64.zip
-To recreate it, extract that archive into `.tools/`, or install NASM on PATH.
-The runner prefers the local copy. No global PATH changes are needed.
+The executable should be `.tools/nasm-3.02/nasm.exe`. Alternatively, install
+NASM on PATH.
+
+On macOS, install NASM on PATH (for example, `brew install nasm` if you use
+Homebrew), or place a macOS NASM executable at `.tools/nasm-3.02/nasm`.
+The runner prefers the local executable for the current operating system,
+then searches PATH. A leftover Windows `nasm.exe` is ignored on macOS.
 Virtual environments, tools, and generated outputs are ignored by Git.

@@ -1,15 +1,13 @@
 param(
     [Parameter(Mandatory = $true)][string]$Profiler,
-    [Parameter(Mandatory = $true)][string]$Program,
-    [Parameter(Mandatory = $true)][string]$InputFile,
+    [Parameter(Mandatory = $true)][string]$ProfilerArguments,
     [Parameter(Mandatory = $true)][string]$OutputFile
 )
 $ErrorActionPreference = 'Stop'
 try {
     Remove-Item Env:HAVERSINE_TRACE -ErrorAction SilentlyContinue
-    # Start-Process joins ArgumentList into a command line; quote each file path.
-    $profilerArguments = '-o "{0}" -- "{1}" "{2}"' -f $OutputFile, $Program, $InputFile
-    $process = Start-Process -FilePath $Profiler -ArgumentList $profilerArguments `
+    # Python has quoted this command line using Windows subprocess.list2cmdline.
+    $process = Start-Process -FilePath $Profiler -ArgumentList $ProfilerArguments `
         -WorkingDirectory (Split-Path -Parent $OutputFile) `
         -Verb RunAs -WindowStyle Hidden -PassThru
     $process.WaitForExit()

@@ -137,14 +137,14 @@ def decode_instruction(data: bytes, offset: int) -> tuple[str, int]:
     elif (byte0 & 0b1111_1110) == 0b1010_0000:
         # MOV memory to accumulator
         w = byte0 & 0b0000_0001
-        src = f"[{munch_direct_address("MOV memory to accumulator addr")}]"
+        src = f"[{munch_direct_address('MOV memory to accumulator addr')}]"
         dst = "ax" if w else "al"
         return (f"mov {dst}, {src}", consumed_bytes)
     elif (byte0 & 0b1111_1110) == 0b1010_0010:
         # MOV accumulator to memory
         w = byte0 & 0b0000_0001
         src = "ax" if w else "al"
-        dst = f"[{munch_direct_address("MOV accumulator to memory addr")}]"
+        dst = f"[{munch_direct_address('MOV accumulator to memory addr')}]"
         return (f"mov {dst}, {src}", consumed_bytes)
     elif (byte0 & 0b1111_1111) == 0b1000_1110:
         # MOV register/memory to segment register

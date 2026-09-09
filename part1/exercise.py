@@ -1,5 +1,7 @@
 """Assemble, run, and check the part 1 disassembler exercises."""
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 import shutil
@@ -14,10 +16,11 @@ SUPPORTED_LISTINGS = {"0037", "0038", "0039", "0040", "0041"}
 
 
 def nasm() -> str:
-    local = ROOT / ".tools" / "nasm-3.02" / "nasm.exe"
-    found = str(local) if local.exists() else shutil.which("nasm")
+    executable = "nasm.exe" if sys.platform == "win32" else "nasm"
+    local = ROOT / ".tools" / "nasm-3.02" / executable
+    found = str(local) if local.is_file() else shutil.which("nasm")
     if not found:
-        raise RuntimeError("NASM missing. See README.md for setup.")
+        raise RuntimeError("NASM missing. See part1/README.md for Windows and macOS setup.")
     return found
 
 

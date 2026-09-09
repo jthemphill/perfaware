@@ -2,6 +2,44 @@
 
 Solutions and tools organized by course part.
 
+## Windows and macOS setup
+
+Create a separate Python environment on each computer; `.venv/` and `.tools/`
+contain platform-specific executables and should not be copied between them.
+Python 3.9 or newer is supported. From the repository root:
+
+| Setup | Windows (PowerShell) | macOS (Terminal) |
+| --- | --- | --- |
+| Python environment | `py -3 -m venv .venv` | `python3 -m venv .venv` |
+| Part 1 check | `.venv/Scripts/python.exe part1/exercise.py check` | `.venv/bin/python part1/exercise.py check` |
+| Part 2 check | `.venv/Scripts/python.exe part2/exercise.py correctness` | `.venv/bin/python part2/exercise.py correctness` |
+
+No Python packages are required. Initialize the course source with
+`git submodule update --init --recursive`. Part 1 needs NASM (see
+[tool setup](part1/README.md#local-tools-and-recreating-the-environment));
+part 2 needs Rust with Cargo and support for edition 2024. Comparing against
+Casey additionally needs a C++ compiler, and CPU sampling needs the profiler
+described in [part 2](part2/README.md).
+
+The same VS Code tasks and debug configurations work on both systems and choose
+the appropriate `.venv` executable automatically. The default interpreter uses
+the `.venv` directory, as supported by the
+[VS Code Python settings](https://code.visualstudio.com/docs/python/settings-reference).
+If VS Code previously saved an interpreter from the other computer, run
+**Python: Select Interpreter** and choose this computer's `.venv`.
+
+For Casey's C++ listings, install the recommended Microsoft C/C++ extension
+and run **Tasks: Run Task → Casey: Configure C++ IntelliSense** once on each
+computer, and again after moving the checkout or updating the course source.
+This requires a C++ compiler (`CXX` can select its executable; for MSVC, run
+from a Developer terminal). The task generates an ignored, machine-local
+`build/casey-intellisense/compile_commands.json` containing the main listings.
+IntelliSense then parses included `.cpp` fragments in their main listing's
+context, where Casey defines types such as `u64`, `f64`, and `buffer`.
+On macOS the editor database targets x86-64 so the course's RDTSC/AVX intrinsics
+parse on Apple Silicon; this does not change benchmark builds. Windows-only
+listings still require Windows headers and may report errors on macOS/Linux.
+
 ## Part 1: 8086 disassembler
 
 The decoder and its test runner live in [part1/](part1/).

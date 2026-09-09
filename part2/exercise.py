@@ -6,6 +6,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shlex
 import statistics
 import struct
 import subprocess
@@ -13,6 +14,9 @@ import sys
 import time
 import uuid
 import xml.etree.ElementTree as ET
+
+from export_stacks import validate_stacks
+from samply_stacks import export_samply
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build" / "part2" / "checks"
@@ -136,11 +140,13 @@ def performance(count, repeats, trace=False, regenerate=False):
 
 
 def flamegraph(count, regenerate=False):
-    if sys.platform != "win32":
-        raise RuntimeError("This flamegraph task uses the Windows sampling backend")
-    profiler = ROOT / ".tools" / "flamegraph" / "bin" / "flamegraph.exe"
+    if sys.platform not in ("win32", "darwin"):
+        raise RuntimeError("This flamegraph task supports Windows and macOS")
+    tool = "samply" if sys.platform == "darwin" else "flamegraph"
+    profiler = ROOT / ".tools" / tool / "bin" / (tool + SUFFIX)
     if not profiler.is_file():
-        raise RuntimeError("Install the profiler: cargo install flamegraph --locked --root .tools/flamegraph")
+        version = " --version 0.13.1" if tool == "samply" else ""
+        raise RuntimeError(f"Install the profiler: cargo install {tool}{version} --locked --root .tools/{tool}")
     path, expected = generate("cluster", 42, count, regenerate=regenerate)
     profile_target = ROOT / "build" / "part2" / "profile-cargo"
     environment = os.environ.copy()
@@ -149,21 +155,44 @@ def flamegraph(count, regenerate=False):
     print("Building optimized average with debug symbols...", flush=True)
     run("cargo", "build", "--release", "--manifest-path", "part2/Cargo.toml",
         "--bin", "average", "--target-dir", profile_target, env=environment)
-    program = profile_target / "release" / "average.exe"
+    program = profile_target / "release" / ("average" + SUFFIX)
     print("Warm-up and reference check...", flush=True)
     check(path, count, expected)
     output = ROOT / "build" / "part2" / "flamegraphs" / uuid.uuid4().hex / "flamegraph.svg"
     output.parent.mkdir(parents=True)
+    stacks = output.with_suffix(".collapsed")
+    if sys.platform == "darwin":
+        profile = output.parent / "profile.json"
+        print("Capturing CPU stacks with samply...", flush=True)
+        print(run(profiler, "record", "--save-only", "--unstable-presymbolicate",
+                  "-o", profile, "--", program, path, env=environment), end="")
+        samples = export_samply(profile, stacks)
+        print(f"Perfetto CPU stacks: {stacks} ({samples:,} samples)")
+        print("Open the .collapsed file at https://ui.perfetto.dev/ for an interactive flamegraph.")
+        print("Native stacks are aggregated over the whole run; inline frames are not expanded.")
+        print(f"Timestamped samply profile and symbol sidecar: {profile}")
+        return
+    # flamegraph parses its hook with POSIX shlex, then Windows parses the
+    # profiler's command line. Quote each layer for its own parser.
+    post_process = shlex.join([
+        sys.executable, str(ROOT / "part2" / "export_stacks.py"),
+    ])
+    profiler_arguments = subprocess.list2cmdline([
+        "--post-process", post_process, "-o", str(output), "--", str(program), str(path),
+    ])
     print("Approve the Windows administrator prompt to capture CPU samples...", flush=True)
     run("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ROOT / "part2" / "flamegraph.ps1",
-        "-Profiler", profiler, "-Program", program, "-InputFile", path,
+        "-Profiler", profiler, "-ProfilerArguments", profiler_arguments,
         "-OutputFile", output, env=environment)
+    samples = validate_stacks(stacks.read_bytes())
     root = ET.parse(output).getroot()
     if not any(element.tag.endswith("title") and "samples" in (element.text or "")
                for element in root.iter()):
         raise RuntimeError("Flamegraph contains no sampled stacks")
     print(f"CPU flamegraph: {output}")
-    print("Open the SVG in a browser. Click frames to zoom; wider frames have more samples.")
+    print(f"Perfetto CPU stacks: {stacks} ({samples:,} samples)")
+    print("Open the .collapsed file at https://ui.perfetto.dev/ for an interactive CPU flamegraph.")
+    print("Stacks are aggregated over the whole run; this export has no sample timestamps.")
 
 
 def positive(value):

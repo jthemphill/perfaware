@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::env;
 use std::fs;
 use std::io;
@@ -216,6 +215,7 @@ fn parse_field<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(Key, f64)> {
     let key = parse_key(cursor)?;
     cursor.skip_whitespace()?;
     cursor.expect(b':')?;
+    cursor.skip_whitespace()?;
     let val = parse_val(cursor)?;
     Ok((key, val))
 }
@@ -245,44 +245,64 @@ fn parse_key<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<Key> {
 }
 
 fn parse_val<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<f64> {
-    thread_local! {
-        static FLOAT_BUFFER: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(100));
-    }
-    FLOAT_BUFFER.with(|buffer| {
-        let mut float_vec = buffer.borrow_mut();
-        float_vec.clear();
-        if let Some(b) = cursor.peek_non_whitespace()? {
-            match b {
-                b'-' | b'0'..=b'9' | b'.' => {
-                    float_vec.push(b);
+    let (sign, mut value) = parse_integer(cursor)?;
+
+    if cursor.peek()? == Some(b'.') {
+        cursor.advance()?;
+        let mut frac_pow = 1.0;
+        loop {
+            match cursor.peek()? {
+                Some(b @ b'0'..=b'9') => {
+                    frac_pow /= 10.0;
+                    value += frac_pow * (b - b'0') as f64;
                     cursor.advance()?;
                 }
-                _ => return Err(format!("Unexpected {b} at offset {}", cursor.offset).into()),
-            };
-            while let Some(b) = cursor.peek()? {
-                match b {
-                    b'-' | b'+' | b'0'..=b'9' | b'.' | b'e' | b'E' => {
-                        if float_vec.len() >= 100 {
-                            return Err(format!(
-                                "Number representation exceeds 100-byte limit at offset {}",
-                                cursor.offset
-                            )
-                            .into());
-                        }
-                        float_vec.push(b);
-                        cursor.advance()?;
-                    }
-                    _ => {
-                        break;
-                    }
-                }
+                _ => break,
             }
         }
+    }
 
-        let text = std::str::from_utf8(&float_vec)?;
-        let value = text.parse::<f64>()?;
-        return Ok(value);
-    })
+    match cursor.peek()? {
+        Some(b'e' | b'E') => {
+            cursor.advance()?;
+            if cursor.peek()? == Some(b'+') {
+                cursor.advance()?;
+            }
+            let (exp_sign, exp) = parse_integer(cursor)?;
+            value *= 10.0_f64.powf(exp_sign * exp);
+        }
+        _ => {}
+    }
+    Ok(sign * value)
+}
+
+fn parse_integer<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(f64, f64)> {
+    let mut sign = 1.0;
+    let mut value = 0.0;
+
+    if cursor.peek()? == Some(b'-') {
+        sign = -1.0;
+        cursor.advance()?;
+    }
+
+    let mut seen_digits = false;
+    loop {
+        match cursor.peek()? {
+            Some(c @ b'0'..=b'9') => {
+                seen_digits = true;
+                value *= 10.0;
+                value += (c - b'0') as f64;
+                cursor.advance()?;
+            }
+            _ => break,
+        }
+    }
+
+    if seen_digits {
+        Ok((sign, value))
+    } else {
+        Err(format!("Expected a number at offset {}", cursor.offset).into())
+    }
 }
 
 // NOTE(casey): EarthRadius is generally expected to be 6372.8

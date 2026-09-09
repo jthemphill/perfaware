@@ -1,5 +1,10 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/casey-intellisense/compile_commands.json",
+  "C_Cpp.default.cppStandard": "c++17",
+  "files.associations": {
+    "*.inl": "cpp"
+  },
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
   "python.analysis.typeCheckingMode": "basic",
   "files.exclude": {
     "**/__pycache__": true
