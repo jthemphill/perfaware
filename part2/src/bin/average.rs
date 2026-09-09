@@ -60,13 +60,25 @@ impl<R: BufRead> Cursor<'_, R> {
     }
 
     fn skip_whitespace(&mut self) -> Result<()> {
-        while let Some(b) = self.peek()? {
-            match b {
-                b' ' | b'\t' | b'\n' | b'\r' => self.advance()?,
-                _ => break,
+        loop {
+            let (consumed, finished) = {
+                let buf = self.reader.fill_buf()?;
+                let mut consumed = 0;
+
+                for &b in buf {
+                    match b {
+                        b' ' | b'\t' | b'\n' | b'\r' => consumed += 1,
+                        _ => break,
+                    }
+                }
+                let finished = buf.is_empty() || consumed < buf.len();
+                (consumed, finished)
+            };
+            self.reader.consume(consumed);
+            if finished {
+                return Ok(());
             }
         }
-        Ok(())
     }
 
     fn expect(&mut self, expected: u8) -> Result<()> {
@@ -249,15 +261,33 @@ fn parse_val<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<f64> {
 
     if cursor.peek()? == Some(b'.') {
         cursor.advance()?;
+
         let mut frac_pow = 1.0;
+
         loop {
-            match cursor.peek()? {
-                Some(b @ b'0'..=b'9') => {
-                    frac_pow /= 10.0;
+            let (consumed, number_ended) = {
+                let buf = cursor.reader.fill_buf()?;
+                let mut consumed = 0;
+
+                for &b in buf {
+                    if !b.is_ascii_digit() {
+                        break;
+                    }
+
+                    frac_pow *= 0.1;
                     value += frac_pow * (b - b'0') as f64;
-                    cursor.advance()?;
+                    consumed += 1;
                 }
-                _ => break,
+
+                let number_ended = consumed < buf.len() || buf.is_empty();
+                (consumed, number_ended)
+            };
+
+            cursor.reader.consume(consumed);
+            cursor.offset += consumed;
+
+            if number_ended {
+                break;
             }
         }
     }
@@ -286,15 +316,32 @@ fn parse_integer<R: BufRead>(cursor: &mut Cursor<'_, R>) -> Result<(f64, f64)> {
     }
 
     let mut seen_digits = false;
+
     loop {
-        match cursor.peek()? {
-            Some(c @ b'0'..=b'9') => {
+        let (consumed, number_ended) = {
+            let buf = cursor.reader.fill_buf()?;
+            let mut consumed = 0;
+
+            for &b in buf {
+                if !b.is_ascii_digit() {
+                    break;
+                }
+
                 seen_digits = true;
                 value *= 10.0;
-                value += (c - b'0') as f64;
-                cursor.advance()?;
+                value += (b - b'0') as f64;
+                consumed += 1;
             }
-            _ => break,
+
+            let number_ended = consumed < buf.len() || buf.is_empty();
+            (consumed, number_ended)
+        };
+
+        cursor.reader.consume(consumed);
+        cursor.offset += consumed;
+
+        if number_ended {
+            break;
         }
     }
 
