@@ -64,13 +64,6 @@ class ComparisonTests(unittest.TestCase):
         with patch.object(compare, "invoke", return_value=result), self.assertRaises(RuntimeError):
             compare.measure("casey", Path("input.json"), 1, 0)
 
-    def test_tracing_disabled_in_child_without_changing_parent(self):
-        with patch.dict(os.environ, {"HAVERSINE_TRACE": "unwanted.json"}), \
-                patch.object(compare.subprocess, "run") as run:
-            compare.invoke(["program", "input.json"])
-            self.assertNotIn("HAVERSINE_TRACE", run.call_args.kwargs["env"])
-            self.assertEqual(os.environ["HAVERSINE_TRACE"], "unwanted.json")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -43,13 +43,9 @@ def binary(name):
     return TARGET / "release" / (name + SUFFIX)
 
 
-def check(path, count, expected, trace=None):
-    environment = os.environ.copy()
-    environment.pop("HAVERSINE_TRACE", None)
-    if trace is not None:
-        environment["HAVERSINE_TRACE"] = str(trace)
+def check(path, count, expected):
     start = time.perf_counter()
-    output = run(binary("average"), path, env=environment)
+    output = run(binary("average"), path)
     elapsed = time.perf_counter() - start
     count_match = re.search(r"Pair count:\s*(\d+)", output)
     mean_match = re.search(r"Mean Haversine distance:\s*(\S+)\s+km", output)
@@ -64,6 +60,7 @@ def check(path, count, expected, trace=None):
             f"{path.name}: expected count={count}, mean={expected:.16g}; "
             f"got count={actual_count}, mean={actual:.16g}"
         )
+    print(output)
     return elapsed
 
 
@@ -113,30 +110,21 @@ def correctness(regenerate=False):
             print(f"PASS: {method}, {count:,} pairs (count and reference mean)")
 
 
-def performance(count, repeats, trace=False, regenerate=False):
-    trace_directory = None
-    if trace:
-        trace_directory = ROOT / "build" / "part2" / "traces" / uuid.uuid4().hex
-        trace_directory.mkdir(parents=True)
+def performance(count, repeats, regenerate=False):
     path, expected = generate("cluster", 42, count, regenerate=regenerate)
     print("Warm-up and reference check...", flush=True)
     check(path, count, expected)
     samples = []
     for index in range(repeats):
-        trace_path = trace_directory / f"run-{index + 1}.json" if trace_directory else None
-        elapsed = check(path, count, expected, trace=trace_path)
+        elapsed = check(path, count, expected)
         samples.append(elapsed)
         print(f"Run {index + 1}: {elapsed:.3f} s, {count / elapsed:,.0f} pairs/s", flush=True)
-        if trace_path:
-            print(f"Trace: {trace_path}", flush=True)
     median = statistics.median(samples)
     size = path.stat().st_size
     print(f"Input: {count:,} pairs, {size / 1e6:.1f} MB")
     print(f"Median: {median:.3f} s, {count / median:,.0f} pairs/s, {size / median / 1e6:.1f} MB/s")
     print("Release build; includes process startup, file reads, parsing, and math.")
     print("Build/generation excluded; warm-up performed; OS file cache may be warm.")
-    if trace:
-        print("Tracing and trace flushing are included in these timings. Open traces at https://ui.perfetto.dev/")
 
 
 def flamegraph(count, regenerate=False):
@@ -150,7 +138,6 @@ def flamegraph(count, regenerate=False):
     path, expected = generate("cluster", 42, count, regenerate=regenerate)
     profile_target = ROOT / "build" / "part2" / "profile-cargo"
     environment = os.environ.copy()
-    environment.pop("HAVERSINE_TRACE", None)
     environment["CARGO_PROFILE_RELEASE_DEBUG"] = "true"
     print("Building optimized average with debug symbols...", flush=True)
     run("cargo", "build", "--release", "--manifest-path", "part2/Cargo.toml",
@@ -207,7 +194,6 @@ def main():
     parser.add_argument("action", choices=("correctness", "performance", "flamegraph"))
     parser.add_argument("--pairs", type=positive, default=1_000_000)
     parser.add_argument("--repeats", type=positive, default=3)
-    parser.add_argument("--trace", action="store_true", help="Export a Perfetto trace for each measured performance run")
     parser.add_argument("--regenerate", action="store_true", help="Replace cached pairs and reference answers")
     args = parser.parse_args()
     try:
@@ -217,7 +203,7 @@ def main():
         elif args.action == "flamegraph":
             flamegraph(args.pairs, regenerate=args.regenerate)
         else:
-            performance(args.pairs, args.repeats, trace=args.trace, regenerate=args.regenerate)
+            performance(args.pairs, args.repeats, regenerate=args.regenerate)
     except subprocess.CalledProcessError as error:
         print(error.stdout or "", file=sys.stderr)
         print(error.stderr or "", file=sys.stderr)

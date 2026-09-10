@@ -5,7 +5,6 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 try {
-    Remove-Item Env:HAVERSINE_TRACE -ErrorAction SilentlyContinue
     # Python has quoted this command line using Windows subprocess.list2cmdline.
     $process = Start-Process -FilePath $Profiler -ArgumentList $ProfilerArguments `
         -WorkingDirectory (Split-Path -Parent $OutputFile) `

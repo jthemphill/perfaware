@@ -26,9 +26,7 @@ ABS_TOL = 1e-8  # km; accounts for differing decimal conversion and summation or
 
 
 def invoke(args, cwd=ex.ROOT):
-    environment = os.environ.copy()
-    environment.pop("HAVERSINE_TRACE", None)
-    return subprocess.run([str(arg) for arg in args], cwd=cwd, env=environment,
+    return subprocess.run([str(arg) for arg in args], cwd=cwd,
                           capture_output=True, text=True, timeout=600, check=True)
 
 
@@ -162,7 +160,7 @@ def benchmark(args, build_info):
     ratio = medians["casey"] / medians["rust"]
     print(f"Casey/Rust elapsed-time ratio: {ratio:.3f} (>1 means Rust is faster)")
     print("End-to-end: startup, reads, parsing, math, output, and process cleanup; builds/generation excluded.")
-    print("Both warmed up; OS cache may be warm. Tracing disabled. Casey materializes JSON; Rust streams it.")
+    print("Both warmed up; OS cache may be warm. Casey materializes JSON; Rust streams it.")
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):

@@ -45,16 +45,6 @@
       "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
     },
     {
-      "label": "Haversine: Benchmark with Perfetto traces",
-      "type": "process",
-      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
-      "args": ["part2/exercise.py", "performance", "--pairs", "${input:haversinePairs}", "--trace"],
-      "options": {"cwd": "${workspaceFolder}"},
-      "problemMatcher": [],
-      "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}
-    },
-    {
       "label": "Haversine: Check correctness",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
