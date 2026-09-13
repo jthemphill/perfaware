@@ -49,7 +49,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
-      "args": ["part2/exercise.py", "correctness"],
+      "args": ["part2/exercise.py", "correctness", "--profiling"],
       "options": {"cwd": "${workspaceFolder}"},
       "group": "test",
       "problemMatcher": [],
@@ -60,7 +60,7 @@
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
-      "args": ["part2/exercise.py", "performance", "--pairs", "${input:haversinePairs}"],
+      "args": ["part2/exercise.py", "performance", "--profiling", "--pairs", "${input:haversinePairs}"],
       "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": [],
       "presentation": {"reveal": "always", "clear": true, "panel": "shared", "showReuseMessage": false}

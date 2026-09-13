@@ -32,10 +32,11 @@ def run(*args, env=None):
     ).stdout
 
 
-def build():
+def build(profiling=False):
     print("Building release binaries...", flush=True)
     run("cargo", "build", "--release", "--manifest-path", "part2/Cargo.toml",
-        "--bins", "--target-dir", TARGET)
+        "--bins", "--target-dir", TARGET, "--no-default-features",
+        *(["--features", "profiling"] if profiling else []))
     BUILD.mkdir(parents=True, exist_ok=True)
 
 
@@ -141,7 +142,7 @@ def flamegraph(count, regenerate=False):
     environment["CARGO_PROFILE_RELEASE_DEBUG"] = "true"
     print("Building optimized average with debug symbols...", flush=True)
     run("cargo", "build", "--release", "--manifest-path", "part2/Cargo.toml",
-        "--bin", "average", "--target-dir", profile_target, env=environment)
+        "--bin", "average", "--target-dir", profile_target, "--no-default-features", env=environment)
     program = profile_target / "release" / ("average" + SUFFIX)
     print("Warm-up and reference check...", flush=True)
     check(path, count, expected)
@@ -195,9 +196,13 @@ def main():
     parser.add_argument("--pairs", type=positive, default=1_000_000)
     parser.add_argument("--repeats", type=positive, default=3)
     parser.add_argument("--regenerate", action="store_true", help="Replace cached pairs and reference answers")
+    parser.add_argument("--profiling", action="store_true",
+                        help="Compile in phase timings and print them (correctness/performance only)")
     args = parser.parse_args()
+    if args.profiling and args.action == "flamegraph":
+        parser.error("--profiling is only supported for correctness and performance")
     try:
-        build()
+        build(profiling=args.profiling)
         if args.action == "correctness":
             correctness(regenerate=args.regenerate)
         elif args.action == "flamegraph":

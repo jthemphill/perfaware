@@ -24,6 +24,28 @@ enum Key {
     Y1,
 }
 
+struct TimedRead<R> {
+    inner: R,
+    #[cfg(feature = "profiling")]
+    ticks: u64,
+}
+
+impl<R> TimedRead<R> {
+    fn new(inner: R) -> Self {
+        Self {
+            inner,
+            #[cfg(feature = "profiling")]
+            ticks: 0,
+        }
+    }
+}
+
+impl<R: Read> Read for TimedRead<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        timed!(self.ticks, self.inner.read(buf))
+    }
+}
+
 struct HaversineProcessor<R: BufRead> {
     reader: R,
     stats: ProfilerStats,
@@ -110,7 +132,7 @@ impl<R: BufRead> HaversineProcessor<R> {
     }
 
     fn fill_buf(&mut self) -> Result<&[u8]> {
-        Ok(timed!(self.stats.read, self.reader.fill_buf())?)
+        Ok(self.reader.fill_buf()?)
     }
 
     /**
@@ -402,8 +424,9 @@ impl<R: BufRead> HaversineProcessor<R> {
     }
 }
 
-impl HaversineProcessor<io::BufReader<fs::File>> {
+impl HaversineProcessor<io::BufReader<TimedRead<fs::File>>> {
     fn run_cli() -> Result<()> {
+        #[allow(unused_mut)] // Only timed! borrows stats mutably when profiling.
         let mut stats = ProfilerStats::default();
 
         let reader = timed!(stats.startup, {
@@ -416,11 +439,15 @@ impl HaversineProcessor<io::BufReader<fs::File>> {
                 return Err(USAGE.into());
             }
             let f = fs::File::open(&args[0])?;
-            io::BufReader::new(f)
+            io::BufReader::new(TimedRead::new(f))
         });
 
         let mut processor = Self::new(reader, stats);
         processor.run()?;
+        #[cfg(feature = "profiling")]
+        {
+            processor.stats.read = processor.reader.get_ref().ticks;
+        }
         processor.stats.print_stats();
         Ok(())
     }

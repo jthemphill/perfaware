@@ -6,5 +6,7 @@ rust-version = "1.94"
 publish = false
 
 [features]
+# Record and print internal phase timings; disabled in ordinary builds.
+profiling = []
 # Also exercises the fallback clock on hosts with a specialized timer.
 portable-timer = []

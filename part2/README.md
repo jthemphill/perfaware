@@ -21,9 +21,19 @@ Other architectures use Rust's `Instant` with nanosecond units as a slower fallb
 
 `cargo test --manifest-path part2/Cargo.toml --features portable-timer` exercises
 the fallback on any host; `cargo run --release --manifest-path part2/Cargo.toml
---features portable-timer --bin average -- <input.json>` uses it for a run.
+--features profiling,portable-timer --bin average -- <input.json>` uses it for a profiled run.
 Timer choice changes instrumentation overhead, so record it when comparing
 benchmarks. None of these counter reads adds instruction-ordering barriers.
+
+Internal phase instrumentation is disabled by default. Enable the `profiling`
+Cargo feature to collect and print startup, read, parse, sum, and output timings.
+Without it, `timed!` evaluates only its work expression; counter storage,
+frequency calibration, and stats output are compiled out of the averaging run.
+Read timing measures underlying buffer refills and overlaps with parse timing.
+The **Check correctness** and **Benchmark at scale** tasks enable this feature
+because they display those timings. Casey comparisons and CPU flamegraphs keep
+it disabled. CLI users can opt in with `exercise.py --profiling` or Cargo's
+`--features profiling`; omit the flag for uninstrumented throughput measurements.
 
 Generated datasets are reused by method, seed, and pair count. Reuse requires a
 nonempty JSON file and a reference file of the expected size with a finite mean.
@@ -79,8 +89,8 @@ live in `build/part2/checks/`; release binaries live in `build/part2/cargo/`.
 Equivalent commands from the repository root:
 
 ```powershell
-.\.venv\Scripts\python.exe part2/exercise.py correctness
-.\.venv\Scripts\python.exe part2/exercise.py performance --pairs 1000000 --repeats 3
+.\.venv\Scripts\python.exe part2/exercise.py correctness --profiling
+.\.venv\Scripts\python.exe part2/exercise.py performance --profiling --pairs 1000000 --repeats 3
 ```
 
 The `generate` binary lives in `src/bin/generate.rs`; the averaging exercise
