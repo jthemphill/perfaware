@@ -17,16 +17,52 @@ Python 3.9 or newer is supported. From the repository root:
 No Python packages are required. Initialize the course source with
 `git submodule update --init --recursive`. Part 1 needs NASM (see
 [tool setup](part1/README.md#local-tools-and-recreating-the-environment));
-part 2 needs Rust with Cargo and support for edition 2024. Comparing against
+part 2 needs [rustup](https://rustup.rs/). Run `rustup show active-toolchain`
+from this checkout to install the version and components pinned in
+`rust-toolchain.toml` (currently Rust 1.94.0). The pin selects the native host
+toolchain on each computer without changing your global default. Comparing against
 Casey additionally needs a C++ compiler, and CPU sampling needs the profiler
 described in [part 2](part2/README.md).
 
 The same VS Code tasks and debug configurations work on both systems and choose
-the appropriate `.venv` executable automatically. The default interpreter uses
-the `.venv` directory, as supported by the
-[VS Code Python settings](https://code.visualstudio.com/docs/python/settings-reference).
-If VS Code previously saved an interpreter from the other computer, run
-**Python: Select Interpreter** and choose this computer's `.venv`.
+the appropriate `.venv` executable automatically. Install the recommended Python
+Environments extension to discover `./.venv`. Run **Python: Select Interpreter**
+once per computer and choose the actual executable inside that environment
+(`.venv/Scripts/python.exe` on Windows or `.venv/bin/python` on macOS).
+The selection is machine-local; do not commit an absolute interpreter path.
+
+If isort or Black reports `spawn .../.venv ENOENT`, select the executable again,
+then run **Developer: Reload Window**. Some extension versions pass a directory
+configured as `python.defaultInterpreterPath` directly to subprocess launch;
+the shared settings deliberately use environment discovery instead.
+Reload the window after installing the Rust toolchain as well if rust-analyzer
+still reports the old nightly version. No nightly features are required.
+
+## Portability boundaries
+
+- **Algorithms and formats:** the Python decoder and Rust Haversine code stay
+  independent of OS APIs. Data files use explicit little-endian encoding.
+- **Timing:** `part2/src/timer/` exposes ticks, frequency, and a clock name.
+  x86-64 reads TSC directly; AArch64 (including Apple Silicon) reads
+  `CNTVCT_EL0` directly and gets its frequency from `CNTFRQ_EL0`. Selection is
+  by CPU architecture, with no OS calls or runtime dispatch in either read.
+  Other architectures fall back to Rust's `Instant`; `portable-timer` explicitly
+  opts into that slower fallback on any host. Compare elapsed seconds or
+  throughput, not raw tick counts.
+- **Tooling:** Python runners own executable suffixes, compiler discovery, and
+  sampler selection. CPU sampling retains native backends: flamegraph on Windows
+  and samply on macOS. Recreate `.venv`, `.tools`, and build outputs locally.
+- **Reference code:** the vendored course source stays unchanged. The supported
+  Casey comparison compiles listings 66/67 natively; later Windows/x86-specific
+  course experiments are not promised to run on every platform.
+
+`.github/workflows/check.yml` runs Rust tests with both native and portable
+clocks, Python runner tests, NASM round trips, Haversine correctness, and the
+Casey comparison on Windows x64, macOS Intel, and macOS Apple Silicon. It runs
+on push and pull requests; sampling remains a local check because it depends
+on OS permissions. Keep the toolchain pin and CI checks together when upgrading.
+
+## C++ reference browsing
 
 For Casey's C++ listings, install the recommended Microsoft C/C++ extension
 and run **Tasks: Run Task → Casey: Configure C++ IntelliSense** once on each

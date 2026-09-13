@@ -26,9 +26,11 @@ class ComparisonTests(unittest.TestCase):
                         patch.object(compare.ex, "SUFFIX", suffix), \
                         patch.object(compare, "BUILD", build), \
                         patch.object(compare, "SOURCE", source), \
-                        patch.object(compare.shutil, "which", side_effect=lambda name: name), \
+                        patch.object(compare, "find_compiler", return_value=compiler), \
                         patch.object(compare, "invoke", return_value=result):
                     commands = compare.build_casey()["commands"]
+                    builds = [call for call in compare.invoke.call_args_list if call.kwargs.get("cwd") == build]
+                    self.assertEqual(len(builds), 2)
                 for name, command in zip(("average", "generate"), commands):
                     self.assertEqual(command[0], compiler)
                     self.assertIn(optimization, command)

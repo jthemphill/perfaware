@@ -4,11 +4,9 @@ import argparse
 import hashlib
 import json
 import math
-import os
 from pathlib import Path
 import platform
 import re
-import shutil
 import statistics
 import struct
 import subprocess
@@ -17,6 +15,7 @@ import time
 import uuid
 
 import exercise as ex
+from cpp_toolchain import find_compiler
 
 VENDOR = ex.ROOT / "vendor" / "computer_enhance"
 SOURCE = VENDOR / "perfaware" / "part2"
@@ -33,12 +32,7 @@ def invoke(args, cwd=ex.ROOT):
 def build_casey():
     if not (SOURCE / "listing_0067_simple_haversine_main.cpp").is_file():
         raise RuntimeError("Initialize the pinned reference: git submodule update --init vendor/computer_enhance")
-    # A Windows Developer terminal supplies the MSVC compiler and SDK together.
-    candidates = ("cl", "clang-cl", "clang++", "g++") if sys.platform == "win32" else ("clang++", "g++")
-    compiler = os.environ.get("CXX") or next(
-        (path for name in candidates if (path := shutil.which(name))), None)
-    if not compiler:
-        raise RuntimeError("Install a C++ compiler or set CXX to its executable. For MSVC, use a Developer terminal.")
+    compiler = find_compiler()
     BUILD.mkdir(parents=True, exist_ok=True)
     msvc = Path(compiler).stem.lower() in ("cl", "clang-cl")
     commands = []

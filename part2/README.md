@@ -11,6 +11,20 @@ and macOS uses no suffix. Rebuild locally instead of copying compiled tools.
 
 ## VS Code checks
 
+The compiler is selected by the repository's `rust-toolchain.toml`.
+
+The profiler's architecture-specific code lives in `src/timer/`. x86-64 reads
+TSC directly (CPUID frequency or calibration); AArch64, including Apple Silicon,
+reads `CNTVCT_EL0` directly and reads its frequency from `CNTFRQ_EL0`. ARM requires
+the execution environment to allow EL0 access to these timer registers.
+Other architectures use Rust's `Instant` with nanosecond units as a slower fallback.
+
+`cargo test --manifest-path part2/Cargo.toml --features portable-timer` exercises
+the fallback on any host; `cargo run --release --manifest-path part2/Cargo.toml
+--features portable-timer --bin average -- <input.json>` uses it for a run.
+Timer choice changes instrumentation overhead, so record it when comparing
+benchmarks. None of these counter reads adds instruction-ordering barriers.
+
 Generated datasets are reused by method, seed, and pair count. Reuse requires a
 nonempty JSON file and a reference file of the expected size with a finite mean.
 The averaging run still validates parsing, pair count, and mean; cache checks do
@@ -110,9 +124,13 @@ Prerequisites: initialize the submodule with
 the platform's Python command above, and install a C++ compiler. On macOS,
 `xcode-select --install` provides Clang via the Command Line Tools; the runner
 searches for `clang++`, then `g++`. On Windows, it searches for `cl`, `clang-cl`,
-`clang++`, then `g++`. Set `CXX` to a compiler executable (without extra flags)
-to override detection. MSVC requires a Developer terminal with its compiler and
-SDK environment loaded; launch VS Code from that terminal when using its tasks.
+`clang++`, then `g++`. For MSVC or clang-cl, launch VS Code in a Developer
+environment or run the script from a Developer terminal so the compiler and
+Windows SDK environment are available. Install Visual Studio or Build Tools
+with **Desktop development with C++** if that toolchain is missing.
+Set `CXX` to a compiler executable (without extra flags) to override detection.
+All compilers use the existing environment; the runner does not discover Visual
+Studio installations or initialize their environment.
 Clang/GCC use `-O3 -ffp-contract=off`; MSVC uses `/O2 /fp:precise`.
 
 ```sh

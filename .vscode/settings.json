@@ -4,7 +4,8 @@
   "files.associations": {
     "*.inl": "cpp"
   },
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "python-envs.workspaceSearchPaths": ["./.venv"],
+  "rust-analyzer.linkedProjects": ["part2/Cargo.toml"],
   "python.analysis.typeCheckingMode": "basic",
   "files.exclude": {
     "**/__pycache__": true

@@ -2,4 +2,9 @@
 name = "haversine-generator"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.94"
 publish = false
+
+[features]
+# Also exercises the fallback clock on hosts with a specialized timer.
+portable-timer = []

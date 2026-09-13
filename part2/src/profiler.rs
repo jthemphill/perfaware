@@ -21,8 +21,8 @@ macro_rules! timed {
 /// Convenience methods for accumulating timer ticks in an ordinary `u64`.
 ///
 /// Import this trait to use these methods. Updates require a mutable reference.
-/// These helpers use raw counter reads; they do not add instruction-ordering
-/// barriers for microbenchmarks.
+/// Omits instruction-ordering barriers to minimize overhead.
+/// Surrounding instructions may execute across the timestamp read.
 pub trait TickCounter {
     /// Add an already calculated delta. Totals wrap on overflow.
     fn add(&mut self, delta: u64);
@@ -51,7 +51,6 @@ impl TickCounter for u64 {
 
 /// Owned profiler totals. Initialize before timing work to exclude calibration,
 /// then pass `&mut ProfilerStats` to functions that record measurements.
-/// Counts are timer ticks, not necessarily CPU cycles.
 ///
 /// ```
 /// use haversine_generator::{ProfilerStats, timed};
@@ -66,8 +65,8 @@ impl TickCounter for u64 {
 /// ```
 #[derive(Debug)]
 pub struct ProfilerStats {
-    /// Timer ticks per second, rather than the CPU's current clock speed.
-    pub cpu_freq: u64,
+    /// Timer ticks per second.
+    pub timer_freq_hz: u64,
     /// Timestamp taken after frequency initialization completes.
     pub start: u64,
     pub startup: u64,
@@ -82,7 +81,7 @@ impl ProfilerStats {
         let total_ticks = read_ticks().wrapping_sub(self.start);
 
         let as_dur = |dur: u64| -> std::time::Duration {
-            std::time::Duration::from_secs_f64(dur as f64 / self.cpu_freq as f64)
+            std::time::Duration::from_secs_f64(dur as f64 / self.timer_freq_hz as f64)
         };
 
         macro_rules! print_stat {
@@ -97,7 +96,12 @@ impl ProfilerStats {
             }};
         }
 
-        println!("Total time: {:?} (CPU freq: {})", as_dur(total_ticks), self.cpu_freq);
+        println!(
+            "Total time: {:?} (timer: {}, ticks/s: {})",
+            as_dur(total_ticks),
+            crate::timer_name(),
+            self.timer_freq_hz
+        );
         print_stat!("Startup", startup);
         print_stat!("Read", read);
         print_stat!("Parse", parse);
@@ -110,7 +114,7 @@ impl Default for ProfilerStats {
     fn default() -> Self {
         let cpu_freq = timer_frequency_hz().unwrap_or_else(estimate_timer_frequency_hz);
         Self {
-            cpu_freq,
+            timer_freq_hz: cpu_freq,
             start: read_ticks(),
             startup: 0,
             read: 0,
