@@ -11,11 +11,11 @@ import statistics
 import struct
 import subprocess
 import sys
-import time
 import uuid
 
 import exercise as ex
 from cpp_toolchain import find_compiler
+from process_metrics import page_fault_backend, run_measured
 
 VENDOR = ex.ROOT / "vendor" / "computer_enhance"
 SOURCE = VENDOR / "perfaware" / "part2"
@@ -92,14 +92,19 @@ def parse_result(name, output, count, expected):
 
 def measure(name, path, count, expected):
     program = ex.binary("average") if name == "rust" else BUILD / ("average" + ex.SUFFIX)
-    start = time.perf_counter()
-    result = invoke([program, path])
-    elapsed = time.perf_counter() - start
+    result, elapsed, faults = run_measured([program, path], cwd=ex.ROOT)
     # Casey's CLI can report errors while returning status 0.
     if "ERROR:" in result.stderr:
         raise RuntimeError(f"{name}: {result.stderr}")
     mean = parse_result(name, result.stdout, count, expected)
-    return {"seconds": elapsed, "mean_km": mean}
+    return {"seconds": elapsed, "mean_km": mean, "page_faults": faults}
+
+
+def format_faults(faults):
+    text = f"{faults['total']:,} page faults"
+    if faults["minor"] is not None:
+        text += f" ({faults['minor']:,} minor, {faults['major']:,} major)"
+    return text
 
 
 def compare(path, count, expected, order=("rust", "casey")):
@@ -144,17 +149,25 @@ def benchmark(args, build_info):
         results, delta = compare(path, args.pairs, expected, order)
         rounds.append({"order": list(order), "results": results, "difference_km": delta})
         print(f"Round {index + 1} ({' then '.join(order)}): "
-              f"Rust {results['rust']['seconds']:.4f} s; Casey {results['casey']['seconds']:.4f} s; "
+              f"Rust {results['rust']['seconds']:.4f} s, {format_faults(results['rust']['page_faults'])}; "
+              f"Casey {results['casey']['seconds']:.4f} s, {format_faults(results['casey']['page_faults'])}; "
               f"difference {delta:.3g} km", flush=True)
     medians = {name: statistics.median(r["results"][name]["seconds"] for r in rounds)
                for name in ("rust", "casey")}
+    median_faults = {
+        name: {kind: (statistics.median(r["results"][name]["page_faults"][kind] for r in rounds)
+                      if rounds[0]["results"][name]["page_faults"][kind] is not None else None)
+               for kind in ("total", "minor", "major")}
+        for name in ("rust", "casey")}
     for name, seconds in medians.items():
         print(f"{name.capitalize()} median: {seconds:.4f} s; {args.pairs / seconds:,.0f} pairs/s; "
-              f"{path.stat().st_size / seconds / 1e6:.1f} MB/s")
+              f"{path.stat().st_size / seconds / 1e6:.1f} MB/s; {format_faults(median_faults[name])}")
     ratio = medians["casey"] / medians["rust"]
     print(f"Casey/Rust elapsed-time ratio: {ratio:.3f} (>1 means Rust is faster)")
     print("End-to-end: startup, reads, parsing, math, output, and process cleanup; builds/generation excluded.")
     print("Both warmed up; OS cache may be warm. Casey materializes JSON; Rust streams it.")
+    print(f"Page faults: {page_fault_backend()}; per-process totals, including soft/minor faults. "
+          "Compare counts on the same OS/machine; Windows does not expose the minor/major split here.")
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -167,6 +180,7 @@ def benchmark(args, build_info):
         "casey_build": build_info, "rustc": invoke(["rustc", "--version"]).stdout.strip(),
         "host": platform.platform(), "machine": platform.machine(),
         "rounds": rounds, "median_seconds": medians, "casey_over_rust": ratio,
+        "page_fault_backend": page_fault_backend(), "median_page_faults": median_faults,
     }
     output = BUILD / "benchmarks" / f"{uuid.uuid4().hex}.json"
     output.parent.mkdir(parents=True, exist_ok=True)

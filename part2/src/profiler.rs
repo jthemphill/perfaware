@@ -9,11 +9,11 @@ use crate::{estimate_timer_frequency_hz, read_ticks, timer_frequency_hz};
 #[macro_export]
 macro_rules! timed {
     ($counter:expr, $work:expr $(,)?) => {{
-        let start = $crate::read_ticks();
+        // let start = $crate::read_ticks();
         let result = $work;
-        let delta = $crate::read_ticks().wrapping_sub(start);
-        let counter: &mut u64 = &mut $counter;
-        *counter = counter.wrapping_add(delta);
+        // let delta = $crate::read_ticks().wrapping_sub(start);
+        // let counter: &mut u64 = &mut $counter;
+        // *counter = counter.wrapping_add(delta);
         result
     }};
 }

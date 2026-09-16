@@ -160,9 +160,25 @@ validation are excluded. The file cache may be warm.
 Casey's parser builds a JSON tree and an array of pairs; Rust streams the file,
 so this measures the complete implementations, not just their math functions.
 
+Each round and the median summary also report page-fault counts for each
+processor's complete lifetime, including startup and cleanup. macOS uses Python's
+`getrusage(RUSAGE_CHILDREN)` deltas around each serial child run and reports minor,
+major, and total faults. Windows uses `GetProcessMemoryInfo` on the retained child
+process handle and reports total faults; the minor/major breakdown is unavailable
+and is saved as `null`, not zero. No extra packages or administrator privileges
+are required. Counter reads are outside the timed interval, and builds, data
+generation, and warmups are excluded from the reported counts.
+
+Minor/soft faults do not require disk I/O, so a warm file cache does not eliminate
+faults from touching newly allocated memory. Compare the two programs on the
+same machine and OS; page sizes and OS accounting differ. The Unix runner must
+remain serial because its counter includes all reaped children of the harness.
+
 Generated reference binaries and Casey inputs live under `build/part2/casey/`.
 Each benchmark saves a JSON report under `build/part2/casey/benchmarks/`, with raw
 timings, means, execution order, input hash, compiler details, and vendor revision.
+Reports also contain per-run `page_faults`, `median_page_faults` (each field's
+independent median), and `page_fault_backend` identifying the native counter.
 Rust-generated inputs use the existing cache; `--regenerate` refreshes them.
 Casey's generator uses a fresh output directory for each dataset.
 

@@ -47,3 +47,5 @@ jobs:
         run: python part2/exercise.py correctness
       - name: Compare with Casey
         run: python part2/compare_casey.py check
+      - name: Benchmark with page-fault accounting
+        run: python part2/compare_casey.py benchmark --pairs 10000 --repeats 2
