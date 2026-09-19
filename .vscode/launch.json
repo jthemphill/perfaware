@@ -2,6 +2,50 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Haversine: One pair (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/part2/debugger/debug/average.exe",
+      "args": ["${workspaceFolder}/build/part2/debugger/input/data_cluster_42_1.json"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "preLaunchTask": "Haversine: Prepare single-pair debug"
+    },
+    {
+      "name": "Haversine: One pair, optimized assembly (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/part2/debugger/release/average.exe",
+      "args": ["${workspaceFolder}/build/part2/debugger/input/data_cluster_42_1.json"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "preLaunchTask": "Haversine: Prepare single-pair optimized debug"
+    },
+    {
+      "name": "Haversine: One pair (macOS)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/part2/debugger/debug/average",
+      "args": ["${workspaceFolder}/build/part2/debugger/input/data_cluster_42_1.json"],
+      "cwd": "${workspaceFolder}",
+      "terminal": "integrated",
+      "stopOnEntry": true,
+      "preLaunchTask": "Haversine: Prepare single-pair debug"
+    },
+    {
+      "name": "Haversine: One pair, optimized assembly (macOS)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/part2/debugger/release/average",
+      "args": ["${workspaceFolder}/build/part2/debugger/input/data_cluster_42_1.json"],
+      "cwd": "${workspaceFolder}",
+      "terminal": "integrated",
+      "stopOnEntry": true,
+      "preLaunchTask": "Haversine: Prepare single-pair optimized debug"
+    },
+    {
       "name": "8086: listing_0037_single_register_mov",
       "type": "debugpy",
       "request": "launch",

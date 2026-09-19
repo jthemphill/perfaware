@@ -30,10 +30,36 @@ Cargo feature to collect and print startup, read, parse, sum, and output timings
 Without it, `timed!` evaluates only its work expression; counter storage,
 frequency calibration, and stats output are compiled out of the averaging run.
 Read timing measures underlying buffer refills and overlaps with parse timing.
-The **Check correctness** and **Benchmark at scale** tasks enable this feature
+The **Check correctness**, **Benchmark at scale**, and single-pair debugger tasks enable this feature
 because they display those timings. Casey comparisons and CPU flamegraphs keep
 it disabled. CLI users can opt in with `exercise.py --profiling` or Cargo's
 `--features profiling`; omit the flag for uninstrumented throughput measurements.
+
+## Step through one pair in the debugger
+
+In **Run and Debug**, select **Haversine: One pair (Windows)** or the macOS
+equivalent and press **F5**. The pre-launch task builds with `profiling` and debug
+symbols, generates exactly one clustered pair with seed 42, and launches `average`.
+On Windows, first use **Add Function Breakpoint** in the Command Palette and enter
+`average::main`. This binds by symbol and avoids stopping in C runtime startup.
+Windows uses the installed Microsoft C/C++ extension; macOS
+requires the **CodeLLDB** extension (`vadimcn.vscode-lldb`).
+
+You can also try a source breakpoint on `let pair = timed!(self.stats.parse, self.parse_pair()?);`
+in `src/bin/average.rs`. If a source breakpoint cannot bind, start from the
+`average::main` function breakpoint instead. Use **F10** to step over and
+**F11** to step into calls. While paused, open **Disassembly View** from the
+editor's context menu to step through the instructions implementing `timed!`.
+The **One pair, optimized assembly** configurations retain debug symbols while
+using release optimization, so they are the appropriate choice for studying
+benchmark assembly. Source stepping and variable availability can be less direct
+in the optimized build.
+
+Both configurations print phase stats to the integrated terminal when continued
+to completion. Time spent paused in the debugger is included in those stats.
+Debugger executables and the input live separately under `build/part2/debugger/`.
+
+## Datasets and tasks
 
 Generated datasets are reused by method, seed, and pair count. Reuse requires a
 nonempty JSON file and a reference file of the expected size with a finite mean.

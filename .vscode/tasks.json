@@ -2,6 +2,26 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Haversine: Prepare single-pair debug",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "linux": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "args": [".vscode/prepare_haversine_debug.py"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "Haversine: Prepare single-pair optimized debug",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "osx": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "linux": {"command": "${workspaceFolder}/.venv/bin/python"},
+      "args": [".vscode/prepare_haversine_debug.py", "--release"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": ["$rustc"]
+    },
+    {
       "label": "Casey: Configure C++ IntelliSense",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
